@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Racahot Engine</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--text:#16181d;--muted:#666d7a;--accent:#e8590c;--line:#d9dce2;--ok:#16a34a;--bad:#dc2626;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#14161b;--card:#1f232b;--text:#f1f3f6;--muted:#9aa2b1;--accent:#fb923c;--line:#343a46;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14161b;--card:#1f232b;--text:#f1f3f6;--muted:#9aa2b1;--accent:#fb923c;--line:#343a46;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:14px 14px 96px;max-width:520px;margin:0 auto}
+h1{font-size:22px;margin:4px 0 2px}h2{font-size:17px;margin:0 0 8px}p{color:var(--muted);font-size:13px;margin:0 0 10px;line-height:1.45}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+input{width:100%;box-sizing:border-box;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px}
+button{border:0;border-radius:10px;padding:10px 14px;background:var(--accent);color:#fff;font-size:14px;font-weight:600}
+button.g{background:var(--bg);color:var(--text);border:1px solid var(--line)}button.r{background:var(--bad)}button.k{background:var(--ok)}
+button:disabled{opacity:.5}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}
+.tools button{background:var(--bg);color:var(--text);border:2px solid var(--line);padding:8px 4px;font-size:13px}
+.tools button.on{border-color:var(--accent)}
+#stage{width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;position:relative;background:#10131a}
+#stage canvas{width:100%;height:100%;display:block;touch-action:none}
+#stage.full{position:fixed;inset:0;z-index:8;aspect-ratio:auto;border-radius:0}
+a{color:var(--accent);font-weight:600}.page{display:none}.page.on{display:block}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;flex-wrap:wrap}
+.item small{color:var(--muted);display:block}
+.tag{font-size:12px;padding:2px 8px;border-radius:20px;border:1px solid var(--line)}
+#msg{min-height:18px;font-size:13px;margin-top:8px}
+.nav{position:fixed;left:0;right:0;bottom:0;display:flex;gap:6px;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 8px);background:var(--card);border-top:1px solid var(--line);z-index:4}
+.nav button{flex:1;background:none;color:var(--muted);padding:8px 2px;font-size:12px;line-height:1.5}
+.nav button.on{color:var(--accent);background:var(--bg)}
+#play{position:fixed;inset:0;z-index:9;display:none;pointer-events:none;color:#fff;align-items:center;justify-content:center}
+#play button{pointer-events:auto}
+#play .bar{position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;font-size:14px}
+#win{position:absolute;display:none;background:rgba(0,0,0,.8);padding:22px;border-radius:16px;text-align:center}
+</style>
+</head>
+<body>
+<h1>🔥 Racahot Engine</h1>
+<p>Xây map không cần code, chơi thử, rồi đăng lên Racahot. Chủ duyệt qua GitHub.</p>
+
+<div class="page on" id="p-build">
+  <div class="card">
+    <input id="title" maxlength="30" placeholder="Tên map">
+    <div class="tools" id="tools"></div>
+    <div class="row" style="margin:0 0 8px"><button class="g" id="bMode">🖌 Chế độ: Vẽ (bấm để Xoay)</button></div>
+    <div id="stageHold"><div id="stage"><canvas id="cv"></canvas></div></div>
+    <p style="margin-top:8px">Chế độ Vẽ: chạm hoặc kéo trên sàn để đặt khối. Chế độ Xoay: kéo để xoay, chụm 2 ngón để phóng to. Cần 1 điểm xuất phát và 1 đích. Phải chơi thử thắng map thì mới đăng được.</p>
+    <div class="row">
+      <button id="bTest" class="g">▶ Chơi thử</button>
+      <button id="bSubmit">📨 Đăng lên Racahot</button>
+      <button id="bClear" class="g">Xóa hết</button>
+    </div>
+    <div id="msg"></div>
+  </div>
+</div>
+
+<div class="page" id="p-games"><div class="card"><h2>🎮 Game đã duyệt</h2><div id="gList"></div></div></div>
+<div class="page" id="p-review"><div class="card"><h2>🛡 Chờ duyệt</h2><p>Chủ repo: mở issue bằng nút bên dưới, thêm nhãn approved để duyệt, đóng issue để từ chối.</p><div id="rList"></div><div class="row"><button class="g" id="bRef">Làm mới</button></div></div></div>
+
+<div class="nav">
+  <button data-p="build" class="on">🛠<br>Xây map</button>
+  <button data-p="games">🎮<br>Game</button>
+    <button data-p="review">🛡<br>Chờ duyệt</button>
+</div>
+
+<div id="play">
+  <div class="bar"><span id="hud"></span><button class="g" id="bExit">Thoát</button></div>
+  <button class="g" id="bJump" style="position:absolute;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 40px);width:84px;height:84px;border-radius:50%;background:rgba(255,255,255,.2);color:#fff">NHẢY</button>
+  <div id="win"><h2 id="winT"></h2><p id="winS" style="color:#ccc"></p><button id="bWin">Đóng</button></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id),W=24;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const T={'0':['Nền','#2b3240'],'1':['Tường','#7b8496'],'2':['Dung nham','#ef4444'],'3':['Xu','#facc15'],'4':['Xuất phát','#22c55e'],'5':['Đích','#a855f7']};
+let tool='1',grid=Array(W*W).fill('0'),clearedT='',db=null,user=null,uid=null,isAdmin=false;
+
+// ---------- Trình xây map 3D ----------
+const stage=$('stage'),cv=$('cv'),hold=$('stageHold');
+const R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.setPixelRatio(Math.min(devicePixelRatio||1,2));
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x10131a);
+const cam=new THREE.PerspectiveCamera(50,1,.1,250);
+scene.add(new THREE.AmbientLight(0xffffff,.65));
+const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(10,25,12);scene.add(dl);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(48,48),new THREE.MeshStandardMaterial({color:0x2b3240}));
+floor.rotation.x=-Math.PI/2;scene.add(floor);
+const gh=new THREE.GridHelper(48,24,0x4a5468,0x343c4c);gh.position.y=.01;scene.add(gh);
+const MAT={
+  '1':new THREE.MeshStandardMaterial({color:0x7b8496,roughness:.7}),
+  '2':new THREE.MeshStandardMaterial({color:0xef4444,emissive:0xb91c1c,emissiveIntensity:.8}),
+  '3':new THREE.MeshStandardMaterial({color:0xfacc15,emissive:0xca8a04,emissiveIntensity:.6}),
+  '4':new THREE.MeshStandardMaterial({color:0x22c55e,emissive:0x15803d,emissiveIntensity:.6}),
+  '5':new THREE.MeshStandardMaterial({color:0xa855f7,emissive:0x7e22ce,emissiveIntensity:.8})
+};
+const tm=new Array(W*W).fill(null);
+const tpos=i=>[(i%W-11.5)*2,(Math.floor(i/W)-11.5)*2];
+function setTile(i,v){
+  if(tm[i]){scene.remove(tm[i]);tm[i]=null}
+  if(v==='0')return;
+  const [x,z]=tpos(i);let m;
+  if(v==='1'){m=new THREE.Mesh(new THREE.BoxGeometry(2,2.2,2),MAT[1]);m.position.set(x,1.1,z)}
+  else if(v==='2'||v==='5'){m=new THREE.Mesh(new THREE.BoxGeometry(2,v==='2'?.1:.4,2),MAT[v]);m.position.set(x,v==='2'?.05:.2,z)}
+  else if(v==='3'){m=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,.15,20),MAT[3]);m.position.set(x,.9,z);m.rotation.x=Math.PI/2}
+  else{m=new THREE.Mesh(new THREE.CylinderGeometry(.8,.8,.2,24),MAT[4]);m.position.set(x,.1,z)}
+  scene.add(m);tm[i]=m;
+}
+const rebuildAll=()=>{for(let i=0;i<W*W;i++)setTile(i,grid[i])};
+
+// Nhân vật khi chơi thử
+const hero=new THREE.Group();
+(()=>{const b=(w,h,d,c,y)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:c}));m.position.y=y;hero.add(m)};
+  b(.9,1,.6,0xe8590c,1.1);b(.6,.6,.6,0xf5cd30,1.9);b(.8,.7,.5,0x2b3a67,.35)})();
+
+// Camera xoay quanh map
+let az=.6,el=1.0,dist=44,mode='paint',playing=false,P=null,PG=null;
+function placeCam(){
+  if(playing)return;
+  cam.position.set(Math.sin(az)*Math.cos(el)*dist,Math.sin(el)*dist,Math.cos(az)*Math.cos(el)*dist);cam.lookAt(0,0,0);
+}
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();placeCam()}
+const redraw=resize;
+addEventListener('resize',resize);
+
+const ray=new THREE.Raycaster(),mv=new THREE.Vector2(),ptrs=new Map();
+let painting=false,pd=1,drag=false,sx=0,sy=0,vx=0,vy=0;
+const pdist=()=>{const a=[...ptrs.values()];return Math.hypot(a[0].clientX-a[1].clientX,a[0].clientY-a[1].clientY)||1};
+function pick(e){
+  const r=cv.getBoundingClientRect();mv.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height*2-1));
+  ray.setFromCamera(mv,cam);const h=ray.intersectObject(floor)[0];if(!h)return -1;
+  const tx=Math.floor(h.point.x/2+12),tz=Math.floor(h.point.z/2+12);
+  return(tx<0||tz<0||tx>=W||tz>=W)?-1:tz*W+tx;
+}
+function paint(e){
+  const i=pick(e);if(i<0)return;
+  if(tool==='4'||tool==='5')grid.forEach((v,k)=>{if(v===tool){grid[k]='0';setTile(k,'0')}});
+  grid[i]=tool;setTile(i,tool);
+}
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);
+  if(playing){drag=true;sx=e.clientX;sy=e.clientY;return}
+  ptrs.set(e.pointerId,e);
+  if(ptrs.size===2){painting=false;pd=pdist()}else if(mode==='paint'){painting=true;paint(e)}
+});
+cv.addEventListener('pointermove',e=>{
+  if(playing){if(!drag)return;const dx=e.clientX-sx,dy=e.clientY-sy,l=Math.hypot(dx,dy);if(l>8){vx=dx/Math.max(l,40);vy=dy/Math.max(l,40)}else{vx=vy=0}return}
+  const o=ptrs.get(e.pointerId);if(!o)return;ptrs.set(e.pointerId,e);
+  if(ptrs.size===2){const d=pdist();dist=Math.max(14,Math.min(80,dist*pd/d));pd=d;placeCam()}
+  else if(painting)paint(e);
+  else if(mode==='rot'){az-=(e.clientX-o.clientX)*.01;el=Math.max(.25,Math.min(1.45,el+(e.clientY-o.clientY)*.01));placeCam()}
+});
+const up=e=>{
+  if(playing){drag=false;vx=vy=0;return}
+  ptrs.delete(e.pointerId);if(!ptrs.size){if(painting)saveDraft();painting=false}
+};
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('wheel',e=>{if(playing)return;e.preventDefault();dist=Math.max(14,Math.min(80,dist+e.deltaY*.03));placeCam()},{passive:false});
+$('bMode').addEventListener('click',()=>{mode=mode==='paint'?'rot':'paint';$('bMode').textContent=mode==='paint'?'🖌 Chế độ: Vẽ (bấm để Xoay)':'✋ Chế độ: Xoay (bấm để Vẽ)'});
+
+Object.keys(T).forEach(k=>{
+  const b=document.createElement('button');b.textContent=T[k][0];if(k===tool)b.className='on';
+  b.addEventListener('click',()=>{tool=k;[...$('tools').children].forEach(c=>c.className='');b.className='on'});
+  $('tools').append(b);
+});
+function saveDraft(){try{localStorage.setItem('rh_draft',JSON.stringify({t:$('title').value,g:grid.join('')}))}catch(e){}}
+try{const d=JSON.parse(localStorage.getItem('rh_draft')||'null');if(d&&d.g&&d.g.length===W*W&&/^[0-5]+$/.test(d.g)){grid=d.g.split('');$('title').value=d.t||''}}catch(e){}
+$('title').addEventListener('input',saveDraft);
+$('bClear').addEventListener('click',()=>{grid=Array(W*W).fill('0');clearedT='';rebuildAll();saveDraft()});
+const msg=(t,ok)=>{$('msg').textContent=t;$('msg').style.color=ok?'var(--ok)':'var(--bad)'};
+rebuildAll();
+
+// ---------- Chơi thử 3D ----------
+const keys={};let saved=null,onWinCb=null;
+onkeydown=e=>{keys[e.key.toLowerCase()]=1;if(playing&&e.key===' ')e.preventDefault()};onkeyup=e=>keys[e.key.toLowerCase()]=0;
+function startPlay(g,onWin){
+  const sp=g.indexOf('4');if(sp<0||playing)return;
+  saved=grid;grid=g.slice();PG=grid;rebuildAll();onWinCb=onWin;
+  const [x,z]=tpos(sp);
+  P={x,z,sx:x,sz:z,y:0,vy:0,gr:true,f:0,t0:performance.now(),got:new Set(),total:g.filter(v=>v==='3').length,won:false};
+  playing=true;vx=vy=0;scene.add(hero);
+  document.body.appendChild(stage);stage.classList.add('full');
+  $('play').style.display='flex';$('win').style.display='none';resize();
+}
+function stopPlay(){
+  if(!playing)return;
+  playing=false;scene.remove(hero);P=null;
+  grid=saved;PG=null;rebuildAll();
+  hold.appendChild(stage);stage.classList.remove('full');$('play').style.display='none';resize();
+}
+const solid=(x,z)=>{
+  for(const [a,b] of [[-.5,-.5],[.5,-.5],[-.5,.5],[.5,.5]]){
+    const tx=Math.floor((x+a)/2+12),tz=Math.floor((z+b)/2+12);
+    if(tx<0||tz<0||tx>=W||tz>=W||PG[tz*W+tx]==='1')return true;
+  }
+  return false;
+};
+function playTick(dt,n){
+  if(P.won)return;
+  let dx=vx+(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dz=vy+(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+  const l=Math.hypot(dx,dz);if(l>1){dx/=l;dz/=l}
+  const ox=P.x,oz=P.z;P.x+=dx*8*dt;P.z+=dz*8*dt;
+  if(solid(P.x,oz))P.x=ox;if(solid(P.x,P.z))P.z=oz;
+  if(keys[' ']&&P.gr)P.vy=10;
+  P.vy-=26*dt;P.y+=P.vy*dt;P.gr=false;if(P.y<=0){P.y=0;P.vy=0;P.gr=true}
+  const tx=Math.floor(P.x/2+12),tz=Math.floor(P.z/2+12),i=tz*W+tx,v=PG[i];
+  if(v==='2'&&P.y<.5){P.x=P.sx;P.z=P.sz;P.vy=0}
+  if(v==='3'&&!P.got.has(i)&&P.y<1.3){P.got.add(i);if(tm[i]){scene.remove(tm[i]);tm[i]=null}}
+  if(l>.05)P.f=Math.atan2(dx,dz);
+  hero.position.set(P.x,P.y,P.z);hero.rotation.y=P.f;
+  cam.position.set(P.x,P.y+13,P.z+9);cam.lookAt(P.x,P.y+1,P.z);
+  $('hud').textContent='⏱ '+((n-P.t0)/1000).toFixed(1)+'s · 🪙 '+P.got.size+'/'+P.total;
+  if(v==='5'){
+    P.won=true;$('winT').textContent='🏁 Về đích!';
+    $('winS').textContent=((n-P.t0)/1000).toFixed(1)+' giây · '+P.got.size+'/'+P.total+' xu';
+    $('win').style.display='block';if(onWinCb)onWinCb();
+  }
+}
+let prevT=performance.now();
+(function frame(n){
+  requestAnimationFrame(frame);const dt=Math.min((n-prevT)/1000,.05);prevT=n;
+  if(!playing&&!stage.offsetParent)return;
+  tm.forEach(m=>{if(m&&m.geometry.type==='CylinderGeometry'&&m.position.y>.5)m.rotation.z+=dt*3});
+  if(playing)playTick(dt,n);
+  R.render(scene,cam);
+})(performance.now());
+$('bExit').addEventListener('click',stopPlay);$('bWin').addEventListener('click',stopPlay);
+$('bJump').addEventListener('pointerdown',e=>{e.preventDefault();if(P&&P.gr)P.vy=10});
+$('bTest').addEventListener('click',()=>{
+  if(!grid.includes('4')||!grid.includes('5')){msg('Cần đặt 1 điểm Xuất phát và 1 Đích.');return}
+  msg('');const cur=grid.join('');startPlay(grid,()=>{clearedT=cur;msg('Đã thắng map, có thể đăng game.',true)});
+});
+
+// ---------- Racahot qua GitHub Issues (không cần server) ----------
+// Đăng game = mở issue [Racahot] trong repo. Chủ repo thêm nhãn "approved" để duyệt.
+const REPO=(()=>{const m=location.hostname.match(/^(.+)\.github\.io$/),p=location.pathname.split('/')[1];return m?m[1]+'/'+(p||m[0]):'OWNER/REPO'})();
+function submit(){
+  const title=$('title').value.trim(),t=grid.join('');
+  if(!title)return msg('Hãy đặt tên map.');
+  if(!grid.includes('4')||!grid.includes('5'))return msg('Cần đặt Xuất phát và Đích.');
+  if(clearedT!==t)return msg('Hãy bấm Chơi thử và thắng map trước khi đăng.');
+  const body='Gửi từ Racahot Engine. Chủ repo: thêm nhãn `approved` để duyệt, đóng issue để từ chối.\n\n```json\n'+JSON.stringify({v:1,title,t})+'\n```';
+  window.open('https://github.com/'+REPO+'/issues/new?title='+encodeURIComponent('[Racahot] '+title)+'&body='+encodeURIComponent(body),'_blank','noopener');
+  msg('Đã mở GitHub: bấm Submit new issue để gửi map cho chủ duyệt.',true);
+}
+$('bSubmit').addEventListener('click',submit);
+
+let items=[];
+async function loadAll(){
+  try{
+    const r=await fetch('https://api.github.com/repos/'+REPO+'/issues?state=open&per_page=60');
+    if(!r.ok)throw 0;
+    items=(await r.json()).filter(i=>!i.pull_request&&/^\[Racahot\]/.test(i.title)).map(i=>{
+      let d=null;const m=(i.body||'').match(/```json\s*([\s\S]*?)```/);
+      try{d=JSON.parse(m[1])}catch(e){}
+      if(!d||typeof d.t!=='string'||!/^[0-5]{576}$/.test(d.t))return null;
+      return{id:String(i.number),title:String(d.title||i.title).slice(0,30),t:d.t,by:(i.user&&i.user.login)||'?',url:i.html_url,ok:i.labels.some(l=>l.name==='approved')};
+    }).filter(Boolean);
+  }catch(e){items=null}
+  render();
+}
+function render(){
+  const empty=t=>'<p>'+t+'</p>';
+  if(!items){const e=empty('Không kết nối được GitHub (repo: '+esc(REPO)+'). Kiểm tra repo public và đã bật Issues.');$('gList').innerHTML=e;$('rList').innerHTML=e;return}
+  const ap=items.filter(m=>m.ok),pend=items.filter(m=>!m.ok);
+  $('gList').innerHTML=ap.length?ap.map(m=>`<div class="item"><span>${esc(m.title)}<small>bởi ${esc(m.by)}</small></span><button data-a="play" data-id="${m.id}">Chơi</button></div>`).join(''):empty('Chưa có game nào được duyệt.');
+  $('rList').innerHTML=pend.length?pend.map(m=>`<div class="item"><span>${esc(m.title)}<small>bởi ${esc(m.by)}</small></span><span class="row" style="margin:0"><button class="g" data-a="play" data-id="${m.id}">Chơi thử</button><a href="${esc(m.url)}" target="_blank" rel="noopener">Mở để duyệt</a></span></div>`).join(''):empty('Không có game nào chờ duyệt.');
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b||!items)return;
+  const m=items.find(x=>x.id===b.dataset.id);if(m)startPlay(m.t.split(''));
+});
+$('bRef').addEventListener('click',loadAll);
+
+// ---------- Tab ----------
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p));
+  if(b.dataset.p==='build')redraw();else loadAll();
+}));
+redraw();render();loadAll();
+</script>
+</body>
+</html>
